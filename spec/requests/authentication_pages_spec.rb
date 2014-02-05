@@ -34,12 +34,6 @@ describe "Authentication" do
       it { should have_link('Sign out',    href: signout_path) }
       it { should_not have_link('Sign in', href: signin_path) }
 
-      before do
-        fill_in "Email",    with: user.email.upcase
-        fill_in "Password", with: user.password
-        click_button "Sign in"
-      end
-
       describe "followed by signout" do
         before { click_link "Sign out" }
         it { should have_link('Sign in') }
@@ -49,7 +43,7 @@ describe "Authentication" do
   describe "authorization" do
    describe "as non-admin user" do
      let(:user) { FactoryGirl.create(:user) }
-     let(:non_admin) { FactoryGirl.create(:user) }
+     let(:non_admin) { FactoryGirl.create(:user, admin: false) }
 
      before { sign_in non_admin, no_capybara: true }
 
@@ -64,9 +58,7 @@ describe "Authentication" do
       describe "when attempting to visit a protected page" do
         before do
           visit edit_user_path(user)
-          fill_in "Email",    with: user.email
-          fill_in "Password", with: user.password
-          click_button "Sign in"
+          sign_in(user); 
         end
         describe "after signing in" do
 
@@ -87,8 +79,8 @@ describe "Authentication" do
           specify { expect(response).to redirect_to(signin_path) }
         end
         describe "visiting the user index" do
-          before { visit users_path }
-          it { should have_title('All users') }
+          before {  sign_in(user); visit users_path }
+          it { should have_title("All users") }
         end
       end
     end
@@ -106,6 +98,36 @@ describe "Authentication" do
       describe "submitting a PATCH request to the Users#update action" do
         before { patch user_path(wrong_user) }
         specify { expect(response).to redirect_to(root_url) }
+      end
+    end
+    describe "when attempting to visit a protected page" do
+      let(:user) { FactoryGirl.create(:user) }
+      before do
+        visit edit_user_path(user)
+        fill_in "Email",    with: user.email
+        fill_in "Password", with: user.password
+        click_button "Sign in"
+      end
+
+      describe "after signing in" do
+
+        it "should render the desired protected page" do
+          expect(page).to have_title('Edit user')
+        end
+
+        describe "when signing in again" do
+          before do
+            #delete signout_path
+            visit signin_path
+            fill_in "Email",    with: user.email
+            fill_in "Password", with: user.password
+            click_button "Sign in"
+          end
+
+          it "should render the default (profile) page" do
+            expect(page).to have_title(user.name)
+          end
+        end
       end
     end
   end
